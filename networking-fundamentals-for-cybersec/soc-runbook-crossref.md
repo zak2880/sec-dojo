@@ -11,23 +11,23 @@ Maps sec-dojo lessons to their corresponding detection rules, triage procedures,
 | Sec-Dojo Lesson | Concept | soc-runbook Scenario / KQL File |
 |---|---|---|
 | [OSI Model](01-osi-tcp-ip/01-osi-model.md) | Layer-based triage framework | TBD |
-| [TCP Handshake](01-osi-tcp-ip/02-tcp-handshake.md) | SYN flood / port scan detection | TBD |
-| [UDP vs TCP](01-osi-tcp-ip/03-udp-vs-tcp.md) | Protocol anomaly alerting | TBD |
+| [TCP Handshake](01-osi-tcp-ip/02-tcp-handshake.md) | SYN flood / port scan detection | [lateral-movement-scanning.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/lateral-movement-scanning.kql) |
+| [UDP vs TCP](01-osi-tcp-ip/03-udp-vs-tcp.md) | Protocol anomaly alerting | [dns-tunnelling.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/dns-tunnelling.kql) |
 
 ## Networking — DNS
 
 | Sec-Dojo Lesson | Concept | soc-runbook Scenario / KQL File |
 |---|---|---|
 | [DNS Resolution Basics](02-dns/01-dns-resolution-basics.md) | Short-TTL / fast-flux detection | TBD |
-| [DNS Tunnelling](02-dns/02-dns-tunneling.md) | Long-subdomain exfiltration alert | TBD |
+| [DNS Tunnelling](02-dns/02-dns-tunneling.md) | Long-subdomain exfiltration alert | [dns-tunnelling.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/dns-tunnelling.kql) |
 | [DGA Detection](02-dns/03-dga-detection.md) | NXDOMAIN storm triage playbook | TBD |
 
 ## Networking — HTTP & TLS
 
 | Sec-Dojo Lesson | Concept | soc-runbook Scenario / KQL File |
 |---|---|---|
-| [HTTP Request Anatomy](03-http-tls/01-http-request-anatomy.md) | Anomalous User-Agent / proxy log triage | TBD |
-| [TLS Handshake](03-http-tls/02-tls-handshake.md) | Self-signed cert alert response | TBD |
+| [HTTP Request Anatomy](03-http-tls/01-http-request-anatomy.md) | Anomalous User-Agent / proxy log triage | [08-c2-beaconing playbook — IE7 UA check](https://github.com/zak2880/soc-runbook/blob/main/docs/scenarios/08-c2-beaconing/playbook.md) |
+| [TLS Handshake](03-http-tls/02-tls-handshake.md) | Self-signed cert alert response | [threat-intel-enrichment.md](https://github.com/zak2880/soc-runbook/blob/main/docs/reference/threat-intel-enrichment.md) (no dedicated KQL — soc-runbook has the same sensor-feed gap as this lesson) |
 | [JA3 Fingerprinting](03-http-tls/03-ja3-fingerprinting.md) | Known-bad JA3 match triage | TBD |
 
 ## Networking — Routing & Switching
@@ -42,6 +42,6 @@ Maps sec-dojo lessons to their corresponding detection rules, triage procedures,
 
 | Sec-Dojo Lesson | Concept | soc-runbook Scenario / KQL File |
 |---|---|---|
-| [What is Beaconing?](05-c2-and-beaconing/01-what-is-beaconing.md) | C2 beacon identification workflow | TBD |
-| [Jitter and Sleep](05-c2-and-beaconing/02-jitter-and-sleep.md) | Jittered beacon statistical hunting | TBD |
-| [Detecting Beacon Patterns (KQL)](05-c2-and-beaconing/03-detecting-beacon-patterns-kql.md) | Beacon hunter alert — triage and escalation | TBD |
+| [What is Beaconing?](05-c2-and-beaconing/01-what-is-beaconing.md) | C2 beacon identification workflow | [beacon-high-connection-count.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/beacon-high-connection-count.kql) |
+| [Jitter and Sleep](05-c2-and-beaconing/02-jitter-and-sleep.md) | Jittered beacon statistical hunting | [beacon-interval-regularity.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/beacon-interval-regularity.kql) |
+| [Detecting Beacon Patterns (KQL)](05-c2-and-beaconing/03-detecting-beacon-patterns-kql.md) | Beacon hunter alert — triage and escalation | [beacon-suspicion-score.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/beacon-suspicion-score.kql) · [08-c2-beaconing playbook](https://github.com/zak2880/soc-runbook/blob/main/docs/scenarios/08-c2-beaconing/playbook.md) |
