@@ -1,6 +1,6 @@
 # sec-dojo
 
-Bite-sized theory lessons for cybersecurity fundamentals — built for fast, focused learning. Each lesson covers one concept, ties it to real-world attacker behavior, and links it to a practical detection use case (KQL/Sentinel). Starting with networking, expanding across other security domains over time.
+KQL detection patterns taught through networking fundamentals — built for SOC analysts moving into detection engineering. Each lesson covers one concept, ties it to real-world attacker behavior, and pairs it with a deployable KQL/Sentinel detection. Starting with networking, expanding across other security domains over time.
 
 ---
 
@@ -27,7 +27,7 @@ sec-dojo/
 
 | Module | Status | Description |
 |---|---|---|
-| [01 — Networking Fundamentals for Cybersec](networking-fundamentals-for-cybersec/README.md) | Active | OSI/TCP-IP, DNS, HTTP/TLS, routing & switching, C2 & beaconing — SC-200 / BTL1 level, each lesson paired with a KQL detection |
+| [01 — Networking Fundamentals for Cybersec](networking-fundamentals-for-cybersec/README.md) | Active | KQL detection patterns for OSI/TCP-IP, DNS, HTTP/TLS, routing & switching, C2 & beaconing — SC-200 / BTL1 level |
 | 02 — TBD | Coming soon | Next security domain, expanding the same bite-sized lesson + detection format |
 
 ---

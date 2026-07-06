@@ -1,6 +1,6 @@
 # sec-dojo — Networking Fundamentals for Cybersec
 
-Bite-sized networking lessons for SOC analysts — SC-200 / BTL1 level and above.  
+KQL detection patterns taught through networking fundamentals — built for SOC analysts moving into detection engineering. SC-200 / BTL1 level and above.  
 Each lesson is under 200 words + a deployable KQL example. Built for ADHD-friendly, focused study sessions.
 
 > **Related:** Detections introduced in sec-dojo are expanded operationally in [soc-runbook](https://github.com/zak2880/soc-runbook) — runbook procedures, triage steps, and production-ready detection rules live there.
