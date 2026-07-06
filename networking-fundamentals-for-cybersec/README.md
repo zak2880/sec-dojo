@@ -63,6 +63,7 @@ Each lesson is under 200 words + a deployable KQL example. Built for ADHD-friend
 
 | Resource | Description |
 |---|---|
+| [kql-patterns-library.md](kql-patterns-library.md) | Every KQL query in this module, grouped by detection technique (beaconing, DNS anomalies, TLS/cert fingerprinting, recon/lateral movement) |
 | [glossary.md](glossary.md) | Alphabetical one-line definitions for all terms used across modules |
 | [cheatsheets/common-ports.md](cheatsheets/common-ports.md) | Port → protocol → detection relevance |
 | [cheatsheets/protocol-abuse-matrix.md](cheatsheets/protocol-abuse-matrix.md) | Legitimate protocol → common abuse → MITRE ATT&CK ID |
