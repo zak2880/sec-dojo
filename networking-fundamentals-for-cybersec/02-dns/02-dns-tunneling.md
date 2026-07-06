@@ -23,6 +23,8 @@ Victim → [data encoded in subdomain] → Corp DNS → Attacker's Auth NS
 
 ## KQL Example
 
+**Variant A — long subdomain queries:**
+
 Detect long subdomain queries indicative of DNS tunnelling:
 
 ```kql
@@ -31,4 +33,17 @@ DnsEvents
 | where SubdomainLength > 50
 | summarize count(), dcount(Name) by ClientIP, bin(TimeGenerated, 1h)
 | where count_ > 20
+```
+
+**Variant B — abnormal TXT-record query volume:**
+
+Not every tunnelling tool relies on long subdomains — some lean on frequent TXT-record lookups to carry command data instead. Flag hosts with abnormally high TXT query volume:
+
+```kql
+DnsEvents
+| where QueryType == "TXT"
+| summarize TxtQueries = count(), DistinctDomains = dcount(Name)
+  by ClientIP, bin(TimeGenerated, 1h)
+| where TxtQueries > 100
+| sort by TxtQueries desc
 ```

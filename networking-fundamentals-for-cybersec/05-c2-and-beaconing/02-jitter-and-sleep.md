@@ -24,6 +24,8 @@ Long sleep:  8h──────8h──────8h  (falls outside alert wi
 
 ## KQL Example
 
+**Baseline broad — standard deviation of inter-arrival times:**
+
 Use standard deviation to find near-regular (jittered) beacons:
 
 ```kql
@@ -39,5 +41,29 @@ DeviceNetworkEvents
             Samples = count()
   by DeviceName, RemoteIP
 | where Samples > 10 and StdDev < 30 and AvgInterval between (30 .. 3600)
+| sort by StdDev asc
+```
+
+**Tuned — excludes fleet-wide shared destinations:**
+
+Legitimate periodic polling (update checks, telemetry, SaaS heartbeats) produces the same low-stdev signature but is shared across many hosts. A real implant's C2 IP is typically only contacted by the handful of hosts it compromised, so excluding destinations touched by many devices cuts most of that noise:
+
+```kql
+DeviceNetworkEvents
+| where RemoteIPType == "Public"
+| sort by DeviceName, RemoteIP, Timestamp asc
+| serialize
+| extend PrevTime = prev(Timestamp, 1), PrevDevice = prev(DeviceName, 1), PrevRemote = prev(RemoteIP, 1)
+| where DeviceName == PrevDevice and RemoteIP == PrevRemote
+| extend IntervalSec = datetime_diff('second', Timestamp, PrevTime)
+| summarize AvgInterval = avg(IntervalSec), StdDev = stdev(IntervalSec), Samples = count()
+  by DeviceName, RemoteIP
+| where Samples > 10 and StdDev < 30 and AvgInterval between (30 .. 3600)
+| join kind=leftanti (
+    DeviceNetworkEvents
+    | where RemoteIPType == "Public"
+    | summarize DeviceCount = dcount(DeviceName) by RemoteIP
+    | where DeviceCount > 5   // touched by more than 5 hosts = likely shared/legitimate service
+  ) on RemoteIP
 | sort by StdDev asc
 ```

@@ -26,6 +26,8 @@ t=180s: POST /updates → 200 OK "no task"
 
 ## KQL Example
 
+**Variant A — HTTP/S beaconing (baseline):**
+
 Find hosts making periodic outbound connections to the same external IP:
 
 ```kql
@@ -38,4 +40,20 @@ DeviceNetworkEvents
 | extend Duration = datetime_diff('minute', LastSeen, FirstSeen)
 | where ConnectionCount > 20 and Duration > 30
 | where RemotePort in (80, 443, 8080, 8443)
+```
+
+**Variant B — DNS-based beaconing:**
+
+Some implants check in via periodic DNS queries instead of HTTP/S. Apply the same periodicity hypothesis to `DnsEvents`:
+
+```kql
+DnsEvents
+| where TimeGenerated > ago(24h)
+| summarize QueryCount = count(),
+            FirstSeen = min(TimeGenerated),
+            LastSeen = max(TimeGenerated)
+  by ClientIP, Name
+| extend Duration = datetime_diff('minute', LastSeen, FirstSeen)
+| where QueryCount > 50 and Duration > 60
+| sort by QueryCount desc
 ```

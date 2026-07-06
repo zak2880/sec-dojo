@@ -26,6 +26,8 @@ Beacon signature fingerprint:
 
 ## KQL Example
 
+**Standard window (24h) — regularity + payload size consistency:**
+
 Full beacon hunter — regularity + payload size consistency over 24 hours:
 
 ```kql
@@ -55,4 +57,37 @@ DeviceNetworkEvents
 | project DeviceName, RemoteIP, RemotePort,
           AvgInterval, StdDev, AvgBytes, Connections
 | sort by StdDev asc
+```
+
+**Low-and-slow variant (7d) — catches long-sleep implants the 24h window misses:**
+
+The standard-window query above needs enough samples in 24 hours to compute meaningful statistics, so it misses implants that check in only a handful of times per week. Widening the window and lowering the connection-count floor catches those:
+
+```kql
+let TimeWindow = 7d;
+DeviceNetworkEvents
+| where Timestamp > ago(TimeWindow)
+| where RemoteIPType == "Public"
+| where RemotePort in (80, 443, 8080, 8443, 53)
+| sort by DeviceName, RemoteIP, RemotePort, Timestamp asc
+| serialize
+| extend PrevTime = prev(Timestamp, 1),
+         PrevDevice = prev(DeviceName, 1),
+         PrevRemote = prev(RemoteIP, 1)
+| where DeviceName == PrevDevice and RemoteIP == PrevRemote
+| extend IntervalSec = datetime_diff('second', Timestamp, PrevTime)
+| summarize
+    AvgInterval  = avg(IntervalSec),
+    StdDev       = stdev(IntervalSec),
+    AvgBytes     = avg(SentBytes),
+    StdDevBytes  = stdev(SentBytes),
+    Connections  = count()
+  by DeviceName, RemoteIP, RemotePort
+| where Connections between (3 .. 15)   // low-and-slow: few connections over a long window
+| where AvgInterval > 3600              // average interval > 1 hour
+| where StdDev < (AvgInterval * 0.3)
+| where StdDevBytes < 200
+| project DeviceName, RemoteIP, RemotePort,
+          AvgInterval, StdDev, AvgBytes, Connections
+| sort by AvgInterval desc
 ```

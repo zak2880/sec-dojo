@@ -55,3 +55,17 @@ DeviceNetworkEvents
 | summarize count() by InitiatingProcessFileName, RemoteIP, RemotePort
 | sort by count_ desc
 ```
+
+**Option C — rare/first-seen JA3 hash (baseline, no threat-intel dependency):**
+
+Option A only catches hashes already on a known-bad list. New or custom C2 tooling won't match. Flagging hashes seen from just one host, a handful of times, over a longer window surfaces novel tooling worth reviewing even without an IOC match:
+
+```kql
+Zeek_SSL_CL
+| where TimeGenerated > ago(7d)
+| where isnotempty(ja3)
+| summarize FirstSeen = min(TimeGenerated), Hosts = dcount(id_orig_h), Connections = count()
+  by ja3
+| where Hosts == 1 and Connections < 5   // hash used by exactly one host, only a handful of times
+| sort by FirstSeen desc
+```

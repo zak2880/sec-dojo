@@ -23,6 +23,21 @@ DeviceNetworkEvents
 ```
 Source: [05-c2-and-beaconing/01-what-is-beaconing.md](05-c2-and-beaconing/01-what-is-beaconing.md)
 
+### DNS-based beaconing (attack variant)
+Applies the same periodicity hypothesis to `DnsEvents` — catches implants that check in via periodic DNS queries instead of HTTP/S.
+```kql
+DnsEvents
+| where TimeGenerated > ago(24h)
+| summarize QueryCount = count(),
+            FirstSeen = min(TimeGenerated),
+            LastSeen = max(TimeGenerated)
+  by ClientIP, Name
+| extend Duration = datetime_diff('minute', LastSeen, FirstSeen)
+| where QueryCount > 50 and Duration > 60
+| sort by QueryCount desc
+```
+Source: [05-c2-and-beaconing/01-what-is-beaconing.md](05-c2-and-beaconing/01-what-is-beaconing.md)
+
 ### Jittered beacon detection (statistical)
 Uses standard deviation of inter-arrival times to catch beacons that add random jitter to their sleep interval and would evade a naive fixed-interval check.
 ```kql
@@ -38,6 +53,29 @@ DeviceNetworkEvents
             Samples = count()
   by DeviceName, RemoteIP
 | where Samples > 10 and StdDev < 30 and AvgInterval between (30 .. 3600)
+| sort by StdDev asc
+```
+Source: [05-c2-and-beaconing/02-jitter-and-sleep.md](05-c2-and-beaconing/02-jitter-and-sleep.md)
+
+### Jittered beacon detection, fleet-rarity tuned
+Same stdev hypothesis, but excludes destinations contacted by many devices fleet-wide — cuts false positives from legitimate shared polling (SaaS heartbeats, update checks) that a lone-implant C2 IP wouldn't produce.
+```kql
+DeviceNetworkEvents
+| where RemoteIPType == "Public"
+| sort by DeviceName, RemoteIP, Timestamp asc
+| serialize
+| extend PrevTime = prev(Timestamp, 1), PrevDevice = prev(DeviceName, 1), PrevRemote = prev(RemoteIP, 1)
+| where DeviceName == PrevDevice and RemoteIP == PrevRemote
+| extend IntervalSec = datetime_diff('second', Timestamp, PrevTime)
+| summarize AvgInterval = avg(IntervalSec), StdDev = stdev(IntervalSec), Samples = count()
+  by DeviceName, RemoteIP
+| where Samples > 10 and StdDev < 30 and AvgInterval between (30 .. 3600)
+| join kind=leftanti (
+    DeviceNetworkEvents
+    | where RemoteIPType == "Public"
+    | summarize DeviceCount = dcount(DeviceName) by RemoteIP
+    | where DeviceCount > 5   // touched by more than 5 hosts = likely shared/legitimate service
+  ) on RemoteIP
 | sort by StdDev asc
 ```
 Source: [05-c2-and-beaconing/02-jitter-and-sleep.md](05-c2-and-beaconing/02-jitter-and-sleep.md)
@@ -71,6 +109,38 @@ DeviceNetworkEvents
 | project DeviceName, RemoteIP, RemotePort,
           AvgInterval, StdDev, AvgBytes, Connections
 | sort by StdDev asc
+```
+Source: [05-c2-and-beaconing/03-detecting-beacon-patterns-kql.md](05-c2-and-beaconing/03-detecting-beacon-patterns-kql.md)
+
+### Low-and-slow beacon hunter (7-day window)
+Same regularity + payload-consistency hunter, widened to a 7-day window with a lower connection-count floor — catches implants that check in only a handful of times per week, which the 24h version misses.
+```kql
+let TimeWindow = 7d;
+DeviceNetworkEvents
+| where Timestamp > ago(TimeWindow)
+| where RemoteIPType == "Public"
+| where RemotePort in (80, 443, 8080, 8443, 53)
+| sort by DeviceName, RemoteIP, RemotePort, Timestamp asc
+| serialize
+| extend PrevTime = prev(Timestamp, 1),
+         PrevDevice = prev(DeviceName, 1),
+         PrevRemote = prev(RemoteIP, 1)
+| where DeviceName == PrevDevice and RemoteIP == PrevRemote
+| extend IntervalSec = datetime_diff('second', Timestamp, PrevTime)
+| summarize
+    AvgInterval  = avg(IntervalSec),
+    StdDev       = stdev(IntervalSec),
+    AvgBytes     = avg(SentBytes),
+    StdDevBytes  = stdev(SentBytes),
+    Connections  = count()
+  by DeviceName, RemoteIP, RemotePort
+| where Connections between (3 .. 15)   // low-and-slow: few connections over a long window
+| where AvgInterval > 3600              // average interval > 1 hour
+| where StdDev < (AvgInterval * 0.3)
+| where StdDevBytes < 200
+| project DeviceName, RemoteIP, RemotePort,
+          AvgInterval, StdDev, AvgBytes, Connections
+| sort by AvgInterval desc
 ```
 Source: [05-c2-and-beaconing/03-detecting-beacon-patterns-kql.md](05-c2-and-beaconing/03-detecting-beacon-patterns-kql.md)
 
@@ -108,6 +178,18 @@ DnsEvents
 | where SubdomainLength > 50
 | summarize count(), dcount(Name) by ClientIP, bin(TimeGenerated, 1h)
 | where count_ > 20
+```
+Source: [02-dns/02-dns-tunneling.md](02-dns/02-dns-tunneling.md)
+
+### Abnormal TXT-record query volume (DNS tunnelling variant)
+Catches tunnelling tools that lean on frequent TXT-record lookups to carry command data rather than encoding everything in long subdomains.
+```kql
+DnsEvents
+| where QueryType == "TXT"
+| summarize TxtQueries = count(), DistinctDomains = dcount(Name)
+  by ClientIP, bin(TimeGenerated, 1h)
+| where TxtQueries > 100
+| sort by TxtQueries desc
 ```
 Source: [02-dns/02-dns-tunneling.md](02-dns/02-dns-tunneling.md)
 
@@ -190,6 +272,19 @@ DeviceNetworkEvents
 | where InitiatingProcessFileName !in ("chrome.exe", "msedge.exe", "firefox.exe", "Teams.exe")
 | summarize count() by InitiatingProcessFileName, RemoteIP, RemotePort
 | sort by count_ desc
+```
+Source: [03-http-tls/03-ja3-fingerprinting.md](03-http-tls/03-ja3-fingerprinting.md)
+
+### Rare / first-seen JA3 hash (baseline anomaly, no IOC dependency)
+Flags JA3 hashes seen from only one host, a handful of times, over a longer window — surfaces novel or custom C2 tooling that a known-bad-list match would miss entirely.
+```kql
+Zeek_SSL_CL
+| where TimeGenerated > ago(7d)
+| where isnotempty(ja3)
+| summarize FirstSeen = min(TimeGenerated), Hosts = dcount(id_orig_h), Connections = count()
+  by ja3
+| where Hosts == 1 and Connections < 5   // hash used by exactly one host, only a handful of times
+| sort by FirstSeen desc
 ```
 Source: [03-http-tls/03-ja3-fingerprinting.md](03-http-tls/03-ja3-fingerprinting.md)
 
