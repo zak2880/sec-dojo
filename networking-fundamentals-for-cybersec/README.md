@@ -7,23 +7,6 @@ Each lesson is under 200 words + a deployable KQL example. Built for ADHD-friend
 
 ---
 
-## Structure
-
-```
-networking-fundamentals-for-cybersec/   ← this repo (Module 1)
-├── 01-osi-tcp-ip/
-├── 02-dns/
-├── 03-http-tls/
-├── 04-routing-switching/
-├── 05-c2-and-beaconing/
-├── cheatsheets/          ← quick-reference tables
-├── labs/                 ← hands-on Zeek/tcpdump exercises
-├── glossary.md           ← one-line term definitions
-└── soc-runbook-crossref.md
-```
-
----
-
 ## Overall Progress
 
 - [ ] Module 01 — OSI & TCP/IP (3/3 lessons)
@@ -106,4 +89,4 @@ Hands-on exercises using homelab tools (Zeek, Suricata, tcpdump on archerserver)
 
 ## License
 
-[MIT](LICENSE) — Zak Heeley, 2026
+[MIT](../LICENSE) — Zak Heeley, 2026
