@@ -1,13 +1,13 @@
 # Labs
 
-Hands-on exercises that reinforce the sec-dojo lessons using real packet capture and analysis tools on your homelab (archerserver).
+Hands-on exercises that reinforce the sec-dojo lessons using real packet capture and analysis tools on your homelab/sensor host.
 
 ## Prerequisites
 
 - **Zeek** installed and pointed at a network interface or PCAP file
 - **Suricata** for signature-based detection exercises
 - **tcpdump** / **Wireshark** for packet-level inspection
-- PCAP files stored at `/home/zak2880/pcaps/` on archerserver (or wherever you keep them)
+- PCAP files stored at `~/pcaps/` on your lab VM (or wherever you keep them)
 
 ## How labs work
 
@@ -29,14 +29,14 @@ Capture an ARP spoofing attack in a PCAP and use Zeek to identify the attacking 
 
 ### Setup
 
-On archerserver, run a controlled ARP spoof between two test VMs (or use a pre-captured PCAP):
+On your lab VM, run a controlled ARP spoof between two test VMs (or use a pre-captured PCAP):
 
 ```bash
 # Option A: generate live traffic with Bettercap (on isolated lab VLAN only)
 sudo bettercap -iface eth1 -eval "set arp.spoof.targets 192.168.10.5; arp.spoof on"
 
 # Option B: use a pre-captured PCAP
-tcpdump -i eth1 -w /home/zak2880/pcaps/arp-spoof.pcap arp
+tcpdump -i eth1 -w ~/pcaps/arp-spoof.pcap arp
 ```
 
 ### Task
@@ -44,7 +44,7 @@ tcpdump -i eth1 -w /home/zak2880/pcaps/arp-spoof.pcap arp
 Run Zeek against the PCAP and inspect the ARP log:
 
 ```bash
-zeek -r /home/zak2880/pcaps/arp-spoof.pcap /opt/zeek/share/zeek/policy/protocols/arp/detect-MiTM.zeek
+zeek -r ~/pcaps/arp-spoof.pcap /opt/zeek/share/zeek/policy/protocols/arp/detect-MiTM.zeek
 cat zeek-logs/arp.log | zeek-cut src_ip dst_ip mac_src | sort | uniq -c | sort -rn
 ```
 
@@ -75,7 +75,7 @@ Generate TLS traffic from a few different clients (browser, curl, Python request
 
 ```bash
 # Capture TLS traffic from a test session
-tcpdump -i eth0 -w /home/zak2880/pcaps/tls-mix.pcap 'tcp port 443'
+tcpdump -i eth0 -w ~/pcaps/tls-mix.pcap 'tcp port 443'
 
 # In another terminal, make some connections:
 curl https://example.com
@@ -90,7 +90,7 @@ Run Zeek with the JA3 package and inspect the SSL log:
 # Install JA3 package if not already present
 zkg install salesforce/ja3
 
-zeek -r /home/zak2880/pcaps/tls-mix.pcap policy/protocols/ssl/validate-certs policy/protocols/ssl/log-hostcerts-only ja3
+zeek -r ~/pcaps/tls-mix.pcap policy/protocols/ssl/validate-certs policy/protocols/ssl/log-hostcerts-only ja3
 cat zeek-logs/ssl.log | zeek-cut ja3 ja3s server_name id.orig_h | column -t
 ```
 

@@ -70,7 +70,7 @@ Each lesson is under 200 words + a deployable KQL example. Built for ADHD-friend
 
 ## Labs
 
-Hands-on exercises using homelab tools (Zeek, Suricata, tcpdump on archerserver).  
+Hands-on exercises using homelab tools (Zeek, Suricata, tcpdump on your homelab/sensor host).  
 **[→ Open labs/README.md](labs/README.md)**
 
 ---
