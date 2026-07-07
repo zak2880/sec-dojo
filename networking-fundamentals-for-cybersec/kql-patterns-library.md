@@ -155,6 +155,49 @@ DeviceNetworkEvents
 ```
 Source: [03-http-tls/01-http-request-anatomy.md](03-http-tls/01-http-request-anatomy.md)
 
+### Non-approved process reaching a SaaS API (baseline)
+Flags connections to trusted SaaS domains (Slack, Discord, Dropbox, GitHub) coming from anything other than the browser or the platform's own desktop app — the behavioral pivot needed once C2 hides behind a domain that can't be blocklisted.
+```kql
+DeviceNetworkEvents
+| where RemoteUrl has_any ("slack.com", "discord.com", "discordapp.com", "api.dropboxapi.com", "github.com")
+| where InitiatingProcessFileName !in~ ("chrome.exe", "msedge.exe", "firefox.exe", "Slack.exe", "Discord.exe", "OneDrive.exe")
+| summarize count(), FirstSeen = min(Timestamp) by DeviceName, InitiatingProcessFileName, RemoteUrl
+| sort by FirstSeen desc
+```
+Source: [05-c2-and-beaconing/04-c2-legitimate-services.md](05-c2-and-beaconing/04-c2-legitimate-services.md)
+
+### Non-approved process reaching a SaaS API, fleet-rarity tuned
+Same SaaS-abuse hypothesis, narrowed to processes/destinations touched by only one or two hosts — cuts false positives from legitimate fleet-wide automation (CI bots, sanctioned integrations) that a lone implant's C2 channel wouldn't produce.
+```kql
+DeviceNetworkEvents
+| where RemoteUrl has_any ("slack.com", "discord.com", "discordapp.com", "api.dropboxapi.com", "github.com")
+| where InitiatingProcessFileName !in~ ("chrome.exe", "msedge.exe", "firefox.exe", "Slack.exe", "Discord.exe", "OneDrive.exe")
+| summarize Hosts = dcount(DeviceName), Connections = count() by InitiatingProcessFileName, RemoteUrl
+| where Hosts <= 2   // sanctioned automation usually runs fleet-wide or from a known service account, not 1-2 endpoints
+| sort by Connections desc
+```
+Source: [05-c2-and-beaconing/04-c2-legitimate-services.md](05-c2-and-beaconing/04-c2-legitimate-services.md)
+
+### Malleable profile HTTP/JA3 mismatch (Zeek join)
+Correlates a beacon's convincingly-templated HTTP URI/Host against the TLS client JA3 for the same connection — the HTTP layer can be disguised as a real service, but the underlying TLS stack fingerprint rarely matches the client library that service actually expects.
+```kql
+let RealBrowserJA3 = datatable(hash: string)[
+    "cd08e31494f9531f560d64c695473da9",   // Chrome
+    "579ccef312d18482fc42e2b822ca2430"    // Firefox
+];
+Zeek_HTTP_CL
+| where TimeGenerated > ago(24h)
+| where host has_any ("code.jquery.com", "ajax.googleapis.com", "login.microsoftonline.com")
+| join kind=inner (
+    Zeek_SSL_CL
+    | project uid, ja3
+  ) on uid
+| where ja3 !in (RealBrowserJA3)
+| project TimeGenerated, id_orig_h, id_resp_h, host, uri, ja3
+| sort by TimeGenerated desc
+```
+Source: [05-c2-and-beaconing/05-malleable-c2-profiles.md](05-c2-and-beaconing/05-malleable-c2-profiles.md)
+
 ---
 
 ## DNS Anomalies & Exfiltration
@@ -216,6 +259,66 @@ DnsEvents
 | sort by FailedDomains desc
 ```
 Source: [02-dns/03-dga-detection.md](02-dns/03-dga-detection.md)
+
+---
+
+## DNS Evasion
+
+### Known DoH resolver IPs/domains (MDE-native)
+Flags non-browser processes connecting to well-known public DoH resolvers (Cloudflare, Google, Quad9) — the weakest but zero-setup starting point once DNS moves inside HTTPS.
+```kql
+DeviceNetworkEvents
+| where RemotePort == 443
+| where RemoteUrl has_any ("cloudflare-dns.com", "dns.google", "dns.quad9.net")
+       or RemoteIP in ("1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4", "9.9.9.9")
+| where InitiatingProcessFileName !in~ ("chrome.exe", "msedge.exe", "firefox.exe")
+| project Timestamp, DeviceName, RemoteUrl, RemoteIP, InitiatingProcessFileName
+| sort by Timestamp desc
+```
+Source: [02-dns/04-doh-dot-blindspot.md](02-dns/04-doh-dot-blindspot.md)
+
+### DoH client JA3 match (Zeek sensor, ties to JA3 lesson)
+Matches observed JA3 hashes against known DoH client libraries (`cloudflared`, `curl --doh-url`, `dnscrypt-proxy`) — catches custom DoH endpoints that Option A's IP/domain list would miss entirely.
+```kql
+let DoHClientJA3 = datatable(hash: string, label: string)[
+    "91010b75e75ab015928692263cc8b889", "cloudflared (DoH client)",
+    "cd1220edee7a9e0495ca56c8fe45f0cf", "curl --doh-url",
+    "68c50641e5dda4b7c93435bf66e31d24", "dnscrypt-proxy"
+];
+Zeek_SSL_CL
+| where TimeGenerated > ago(24h)
+| where isnotempty(ja3)
+| join kind=inner DoHClientJA3 on $left.ja3 == $right.hash
+| project TimeGenerated, id_orig_h, id_resp_h, server_name, ja3, label
+| sort by TimeGenerated desc
+```
+Source: [02-dns/04-doh-dot-blindspot.md](02-dns/04-doh-dot-blindspot.md)
+
+### Fast-flux: domain resolving to many distinct IPs (single-flux)
+Flags a single domain resolving to an unusually high number of distinct IPs within a short window — the rotating-bot-pool signature of single-flux, distinct from DGA's many-domains-one-IP pattern.
+```kql
+DnsEvents
+| where TimeGenerated > ago(1h)
+| where QueryType == "A"
+| summarize DistinctIPs = dcount(IPAddress), Resolutions = count()
+  by Name, bin(TimeGenerated, 10m)
+| where DistinctIPs > 15
+| sort by DistinctIPs desc
+```
+Source: [02-dns/05-fast-flux-dns.md](02-dns/05-fast-flux-dns.md)
+
+### Fast-flux: rotating nameservers (double-flux)
+Applies the same distinct-count hypothesis to NS lookups — catches double-flux, where the A records may look comparatively stable while the authoritative nameserver delegation itself churns.
+```kql
+DnsEvents
+| where TimeGenerated > ago(1h)
+| where QueryType == "NS"
+| summarize DistinctNS = dcount(IPAddress), Resolutions = count()
+  by Name, bin(TimeGenerated, 30m)
+| where DistinctNS > 5
+| sort by DistinctNS desc
+```
+Source: [02-dns/05-fast-flux-dns.md](02-dns/05-fast-flux-dns.md)
 
 ---
 
@@ -287,6 +390,56 @@ Zeek_SSL_CL
 | sort by FirstSeen desc
 ```
 Source: [03-http-tls/03-ja3-fingerprinting.md](03-http-tls/03-ja3-fingerprinting.md)
+
+---
+
+## TLS/C2 Evasion
+
+### Domain fronting: SNI/Host mismatch (Zeek join)
+Correlates the cleartext SNI from `ssl.log` against the encrypted Host header from `http.log` for the same connection (`uid`) — flags traffic that passed a domain allowlist via SNI but actually routed to a different backend.
+```kql
+Zeek_SSL_CL
+| where TimeGenerated > ago(1h)
+| project TimeGenerated, uid, id_orig_h, id_resp_h, sni_domain = server_name
+| join kind=inner (
+    Zeek_HTTP_CL
+    | project uid, host_header = host
+  ) on uid
+| where sni_domain != host_header
+| where sni_domain has_any ("cloudfront.net", "azureedge.net", "fastly.net")
+| project TimeGenerated, id_orig_h, id_resp_h, sni_domain, host_header
+| sort by TimeGenerated desc
+```
+Source: [03-http-tls/04-domain-fronting.md](03-http-tls/04-domain-fronting.md)
+
+### Known-bad JARM hash match (active-scan threat intel join)
+Matches server JARM hashes (from a JARM-scanning pipeline) against known-bad C2 framework defaults — the server-side counterpart to the JA3 known-bad join, useful because a C2 server's TLS stack config stays constant even as the client-side JA3 changes across builds.
+```kql
+let BadJARM = datatable(hash: string, label: string)[
+    "a729330cc0bf8f6abfc81b1f57f72dc8cbe31b9e5e8924be29088a3153329a", "CobaltStrike-default-jarm",
+    "5cad0f13cee08c4c99fd32a83b589c4d8944cc6646d0ab76f64e23c076d311", "Sliver-default-jarm",
+    "e7e6a678291e807ada77552ab13083ef98e91497b99cf9c88e4767529b0d63", "Mythic-default-jarm"
+];
+JarmScan_CL
+| where TimeGenerated > ago(24h)
+| where isnotempty(jarm)
+| join kind=inner BadJARM on $left.jarm == $right.hash
+| project TimeGenerated, dest_ip, dest_port, jarm, label
+| sort by TimeGenerated desc
+```
+Source: [03-http-tls/05-jarm-fingerprinting.md](03-http-tls/05-jarm-fingerprinting.md)
+
+### Rare public destination queue-builder (feeds a JARM scan pipeline)
+No passive MDE-native JARM detection exists — JARM requires active probing — but new/low-volume public HTTPS destinations are a reasonable queue of what to scan next.
+```kql
+DeviceNetworkEvents
+| where RemotePort == 443 and RemoteIPType == "Public"
+| where ActionType == "ConnectionSuccess"
+| summarize FirstSeen = min(Timestamp), Connections = count() by RemoteIP
+| where FirstSeen > ago(24h) and Connections < 10
+| sort by FirstSeen desc
+```
+Source: [03-http-tls/05-jarm-fingerprinting.md](03-http-tls/05-jarm-fingerprinting.md)
 
 ---
 
@@ -369,6 +522,73 @@ CommonSecurityLog
 | sort by TimeGenerated desc
 ```
 Source: [04-routing-switching/03-vlan-hopping.md](04-routing-switching/03-vlan-hopping.md)
+
+### DHCP snooping violations (rogue server / starvation, switch syslog)
+Surfaces DHCP snooping violations from switch syslog — an untrusted port answering with Offer/Ack (rogue server) or a client MAC mismatch (common in starvation floods).
+```kql
+CommonSecurityLog
+| where TimeGenerated > ago(1h)
+| where DeviceVendor == "Cisco"
+| where Message has "DHCP_SNOOPING_UNTRUSTED_PORT"
+       or Message has "DHCP_SNOOPING_MATCH_MAC_FAIL"
+| project TimeGenerated, DeviceName, SourceIP, SourceMACAddress, Message
+| sort by TimeGenerated desc
+```
+Source: [04-routing-switching/04-rogue-dhcp.md](04-routing-switching/04-rogue-dhcp.md)
+
+### Abnormal DHCP Discover volume from one MAC (starvation, Zeek sensor)
+Flags a single MAC address sending far more DHCP Discover messages than any legitimate host would in a short window — the starvation-flood signature that precedes a rogue server taking over lease assignment.
+```kql
+Zeek_DHCP_CL
+| where TimeGenerated > ago(5m)
+| where msg_types has "DISCOVER"
+| summarize DiscoverCount = count() by mac, bin(TimeGenerated, 1m)
+| where DiscoverCount > 100
+| sort by DiscoverCount desc
+```
+Source: [04-routing-switching/04-rogue-dhcp.md](04-routing-switching/04-rogue-dhcp.md)
+
+---
+
+## ICMP & Protocol Abuse
+
+### Oversized ICMP payload (tunnelling, Zeek sensor)
+Flags ICMP echo traffic carrying far more data than a standard ping — `icmpsh`/`ptunnel`-style tools abuse the unrestricted payload field of echo request/reply packets to carry C2 or exfil data.
+```kql
+Zeek_Conn_CL
+| where TimeGenerated > ago(24h)
+| where proto == "icmp"
+| where orig_bytes > 64   // standard ping payload is 32-56 bytes
+| project TimeGenerated, id_orig_h, id_resp_h, orig_bytes, resp_bytes, duration
+| sort by orig_bytes desc
+```
+Source: [01-osi-tcp-ip/04-icmp-tunnelling.md](01-osi-tcp-ip/04-icmp-tunnelling.md)
+
+### Sustained ICMP volume between a host pair (tunnelling, Zeek sensor)
+Diagnostic pings are sporadic; a tunnel sustains steady traffic. Flags host pairs exchanging a high count of ICMP packets in a short window.
+```kql
+Zeek_Conn_CL
+| where TimeGenerated > ago(1h)
+| where proto == "icmp"
+| summarize IcmpCount = count(), AvgBytes = avg(orig_bytes)
+  by id_orig_h, id_resp_h, bin(TimeGenerated, 5m)
+| where IcmpCount > 100
+| sort by IcmpCount desc
+```
+Source: [01-osi-tcp-ip/04-icmp-tunnelling.md](01-osi-tcp-ip/04-icmp-tunnelling.md)
+
+### Custom-size ping command line (MDE process pivot)
+MDE has no ICMP packet visibility, but `ping.exe` invoked with a payload size (`-l`) near the 65500-byte maximum is a visible precursor worth flagging.
+```kql
+DeviceProcessEvents
+| where FileName in~ ("ping.exe", "ping")
+| where ProcessCommandLine has "-l "
+| extend SizeArg = extract(@"-l\s+(\d+)", 1, ProcessCommandLine)
+| where isnotempty(SizeArg) and toint(SizeArg) > 1000
+| project Timestamp, DeviceName, AccountName, ProcessCommandLine
+| sort by Timestamp desc
+```
+Source: [01-osi-tcp-ip/04-icmp-tunnelling.md](01-osi-tcp-ip/04-icmp-tunnelling.md)
 
 ---
 

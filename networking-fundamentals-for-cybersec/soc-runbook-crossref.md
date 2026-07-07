@@ -13,6 +13,7 @@ Maps sec-dojo lessons to their corresponding detection rules, triage procedures,
 | [OSI Model](01-osi-tcp-ip/01-osi-model.md) | Layer-based triage framework | TBD |
 | [TCP Handshake](01-osi-tcp-ip/02-tcp-handshake.md) | SYN flood / port scan detection | [lateral-movement-scanning.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/lateral-movement-scanning.kql) |
 | [UDP vs TCP](01-osi-tcp-ip/03-udp-vs-tcp.md) | Protocol anomaly alerting | [dns-tunnelling.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/dns-tunnelling.kql) |
+| [ICMP & ICMP Tunnelling](01-osi-tcp-ip/04-icmp-tunnelling.md) | Oversized/high-volume ICMP payload detection | TBD |
 
 ## Networking — DNS
 
@@ -21,6 +22,8 @@ Maps sec-dojo lessons to their corresponding detection rules, triage procedures,
 | [DNS Resolution Basics](02-dns/01-dns-resolution-basics.md) | Short-TTL / fast-flux detection | TBD |
 | [DNS Tunnelling](02-dns/02-dns-tunneling.md) | Long-subdomain exfiltration alert | [dns-tunnelling.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/dns-tunnelling.kql) |
 | [DGA Detection](02-dns/03-dga-detection.md) | NXDOMAIN storm triage playbook | TBD |
+| [DoH/DoT Blind Spot](02-dns/04-doh-dot-blindspot.md) | DoH resolver / JA3 pivot triage | TBD |
+| [Fast-Flux DNS](02-dns/05-fast-flux-dns.md) | Single/double-flux distinct-IP detection | TBD |
 
 ## Networking — HTTP & TLS
 
@@ -29,6 +32,8 @@ Maps sec-dojo lessons to their corresponding detection rules, triage procedures,
 | [HTTP Request Anatomy](03-http-tls/01-http-request-anatomy.md) | Anomalous User-Agent / proxy log triage | [08-c2-beaconing playbook — IE7 UA check](https://github.com/zak2880/soc-runbook/blob/main/docs/scenarios/08-c2-beaconing/playbook.md) |
 | [TLS Handshake](03-http-tls/02-tls-handshake.md) | Self-signed cert alert response | [threat-intel-enrichment.md](https://github.com/zak2880/soc-runbook/blob/main/docs/reference/threat-intel-enrichment.md) (no dedicated KQL — soc-runbook has the same sensor-feed gap as this lesson) |
 | [JA3 Fingerprinting](03-http-tls/03-ja3-fingerprinting.md) | Known-bad JA3 match triage | TBD |
+| [Domain Fronting](03-http-tls/04-domain-fronting.md) | SNI/Host mismatch join hunt | TBD |
+| [JARM Fingerprinting](03-http-tls/05-jarm-fingerprinting.md) | Known-bad JARM match triage | TBD |
 
 ## Networking — Routing & Switching
 
@@ -37,6 +42,7 @@ Maps sec-dojo lessons to their corresponding detection rules, triage procedures,
 | [ARP Basics](04-routing-switching/01-arp-basics.md) | ARP anomaly baseline | TBD |
 | [ARP Spoofing](04-routing-switching/02-arp-spoofing.md) | MITM via ARP — detection and isolation | TBD |
 | [VLAN Hopping](04-routing-switching/03-vlan-hopping.md) | Switch misconfig detection | TBD |
+| [Rogue DHCP & DHCP Starvation](04-routing-switching/04-rogue-dhcp.md) | DHCP snooping violation / starvation triage | TBD |
 
 ## Networking — C2 & Beaconing
 
@@ -45,3 +51,5 @@ Maps sec-dojo lessons to their corresponding detection rules, triage procedures,
 | [What is Beaconing?](05-c2-and-beaconing/01-what-is-beaconing.md) | C2 beacon identification workflow | [beacon-high-connection-count.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/beacon-high-connection-count.kql) |
 | [Jitter and Sleep](05-c2-and-beaconing/02-jitter-and-sleep.md) | Jittered beacon statistical hunting | [beacon-interval-regularity.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/beacon-interval-regularity.kql) |
 | [Detecting Beacon Patterns (KQL)](05-c2-and-beaconing/03-detecting-beacon-patterns-kql.md) | Beacon hunter alert — triage and escalation | [beacon-suspicion-score.kql](https://github.com/zak2880/soc-runbook/blob/main/kql/network/beacon-suspicion-score.kql) · [08-c2-beaconing playbook](https://github.com/zak2880/soc-runbook/blob/main/docs/scenarios/08-c2-beaconing/playbook.md) |
+| [C2 over Legitimate Services](05-c2-and-beaconing/04-c2-legitimate-services.md) | SaaS-abuse behavioral baseline triage | TBD |
+| [Malleable C2 Profiles](05-c2-and-beaconing/05-malleable-c2-profiles.md) | HTTP-template / JA3 mismatch join hunt | TBD |
