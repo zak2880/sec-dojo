@@ -18,6 +18,16 @@ sec-dojo/
 │   ├── labs/                 ← hands-on Zeek/tcpdump exercises
 │   ├── glossary.md           ← one-line term definitions
 │   └── soc-runbook-crossref.md
+├── windows-endpoint-fundamentals/           ← Module 2
+│   ├── 01-process-fundamentals/
+│   ├── 02-sysmon-and-event-logs/
+│   ├── 03-persistence-mechanisms/
+│   ├── 04-credential-access/
+│   ├── 05-defense-evasion/
+│   ├── cheatsheets/          ← quick-reference tables
+│   ├── labs/                 ← hands-on Sysmon/Event Viewer exercises
+│   ├── glossary.md           ← one-line term definitions
+│   └── soc-runbook-crossref.md
 └── (more modules coming soon)
 ```
 
@@ -28,7 +38,7 @@ sec-dojo/
 | Module | Status | Description |
 |---|---|---|
 | [01 — Networking Fundamentals for Cybersec](networking-fundamentals-for-cybersec/README.md) | Active | KQL detection patterns for OSI/TCP-IP, DNS, HTTP/TLS, routing & switching, C2 & beaconing — SC-200 / BTL1 level |
-| 02 — TBD | Coming soon | Next security domain, expanding the same bite-sized lesson + detection format |
+| [02 — Windows/Endpoint Fundamentals](windows-endpoint-fundamentals/README.md) | Active | KQL detection patterns for process fundamentals, Sysmon & event logs, persistence, credential access, and defense evasion — SC-200 / BTL1 level |
 
 ---
 
